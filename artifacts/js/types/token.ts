@@ -26,13 +26,13 @@ import {
 
 export interface token {
   owner: LeoAddress;
-  amount: bigint;
+  balance: bigint;
   _nonce: bigint;
 }
 
 export const leoTokenSchema = z.object({
   owner: leoAddressSchema,
-  amount: leoU64Schema,
+  balance: leoU64Schema,
   _nonce: leoGroupSchema,
 });
 export type tokenLeo = z.infer < typeof leoTokenSchema > ;

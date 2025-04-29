@@ -12,27 +12,25 @@ const contract = new TokenContract({ mode });
 // This maps the accounts defined inside networks in aleo-config.js and return array of address of respective private keys
 const [admin, recipient] = contract.getAccounts();
 
-beforeAll(async() => {
-  if ((mode as ExecutionMode) == ExecutionMode.SnarkExecute) {
-    const tx = await contract.deploy();
-    await tx.wait();
-  }
+beforeAll(async () => {
+  const tx = await contract.deploy();
+  await tx.wait();
 }, TIMEOUT);
 
-beforeEach(async() => {
+beforeEach(async () => {
   const resetAdmin = await contract.reset_account(admin);
   const resetRecipient = await contract.reset_account(recipient);
   
-  resetAdmin.wait();
-  resetRecipient.wait();
+  await resetAdmin.wait();
+  await resetRecipient.wait();
 }, TIMEOUT);
 
 describe('tests', () => {
-  test('public mint', async() => {
+  test('public mint', async () => {
     const actualAmount = BigInt(300000);
 
-    const tx = await contract.mint_pub(admin, actualAmount);
-    await tx.wait();
+    const mintTx = await contract.mint_pub(admin, actualAmount);
+    await mintTx.wait();
 
     const expected = await contract.account(admin);
     expect(expected).toBe(actualAmount);
@@ -45,10 +43,10 @@ describe('tests', () => {
     const [record1] = await tx.wait();
     
     const recipientKey = contract.getPrivateKey(recipient);
-
     const decryptedRecord = decrypttoken(record1, recipientKey);
 
-    expect(decryptedRecord.amount).toBe(actualAmount);
+    expect(decryptedRecord.owner).toBe(recipient);
+    expect(decryptedRecord.balance).toBe(actualAmount);
   }, TIMEOUT);
   
   test('public transfer', async () => {
@@ -59,7 +57,6 @@ describe('tests', () => {
     await mintTx.wait();
 
     let adminAmount = await contract.account(admin);
-
     expect(adminAmount).toBe(amount1);
 
     const transferTx = await contract.transfer_pub(recipient, amount2);
@@ -73,25 +70,33 @@ describe('tests', () => {
   }, TIMEOUT);
 
   test('private transfer', async () => {
-    const pk = contract.config.privateKey;
+    const adminKey = contract.getPrivateKey(admin);
+    const recipientKey = contract.getPrivateKey(recipient);
 
     const amount1 = BigInt(1000000000);
     const amount2 = BigInt(100000000);
 
     const mintTx = await contract.mint_priv(admin, amount1);
-    const [encryptedToken1] = await mintTx.wait();
+    const [encryptedToken] = await mintTx.wait();
       
-    const decryptedRecord = decrypttoken(encryptedToken1, pk);
+    const decryptedRecord = decrypttoken(encryptedToken, adminKey);
 
     const transferTx = await contract.transfer_priv(decryptedRecord, recipient, amount2);
-    const [encryptedToken2, record2] = await transferTx.wait();
+    const [encryptedAdminRecord, encryptedRecipientRecord] = await transferTx.wait();
 
-    const decryptedRecord2 = decrypttoken(encryptedToken2, pk);
+    const adminRecord = decrypttoken(encryptedAdminRecord, adminKey);
+    const recipientRecord = decrypttoken(encryptedRecipientRecord, recipientKey);
 
-    expect(decryptedRecord2.amount).toBe(amount1 - amount2);
+    expect(adminRecord.owner).toBe(admin);
+    expect(adminRecord.balance).toBe(amount1 - amount2);
+
+    expect(recipientRecord.owner).toBe(recipient);
+    expect(recipientRecord.balance).toBe(amount2);
   }, TIMEOUT);
 
   test('public to private transfer', async () => {
+    const recipientKey = contract.getPrivateKey(recipient);
+
     const amount1 = BigInt(500000);
     const amount2 = BigInt(100000);
 
@@ -99,10 +104,7 @@ describe('tests', () => {
     await mintTx.wait();
 
     let adminAmount = await contract.account(admin);
-
     expect(adminAmount).toBe(amount1);
-
-    const recipientKey = contract.getPrivateKey(recipient);
 
     const transferTx = await contract.transfer_pub_to_priv(admin, recipient, amount2);
     const [record] = await transferTx.wait();
@@ -110,14 +112,15 @@ describe('tests', () => {
     adminAmount = await contract.account(admin);
 
     const decryptedRecord = decrypttoken(record, recipientKey);
-
+    
     expect(adminAmount).toBe(amount1 - amount2);
+
     expect(decryptedRecord.owner).toBe(recipient);
-    expect(decryptedRecord.amount).toBe(amount2);
+    expect(decryptedRecord.balance).toBe(amount2);
   }, TIMEOUT);
 
   test('private to public transfer', async () => {
-    const pk = contract.config.privateKey;
+    const adminKey = contract.getPrivateKey(admin);
 
     const amount1 = BigInt(600000);
     const amount2 = BigInt(500000);
@@ -125,19 +128,19 @@ describe('tests', () => {
     const mintTx = await contract.mint_priv(admin, amount1);
     const [encryptedToken] = await mintTx.wait();
     
-    const decryptedToken = decrypttoken(encryptedToken, pk);
-
-    expect(decryptedToken.amount).toBe(amount1);
+    const decryptedToken = decrypttoken(encryptedToken, adminKey);
+    expect(decryptedToken.balance).toBe(amount1);
 
     const transferTx = await contract.transfer_priv_to_pub(decryptedToken, recipient, amount2);
     const [record] = await transferTx.wait();
 
     const recipientAmount = await contract.account(recipient);
-    const decryptedRecord = decrypttoken(record, pk);
+    const decryptedRecord = decrypttoken(record, adminKey);
 
     expect(recipientAmount).toBe(amount2);
+
     expect(decryptedRecord.owner).toBe(admin);
-    expect(decryptedRecord.amount).toBe(amount1 - amount2);
+    expect(decryptedRecord.balance).toBe(amount1 - amount2);
   }, TIMEOUT);
 });
 

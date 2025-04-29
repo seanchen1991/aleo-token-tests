@@ -15,7 +15,7 @@ import {
 export function gettoken(token: tokenLeo): token {
   const result: token = {
     owner: leo2js.address(token.owner),
-    amount: leo2js.u64(token.amount),
+    balance: leo2js.u64(token.balance),
     _nonce: leo2js.group(token._nonce),
   }
   return result;

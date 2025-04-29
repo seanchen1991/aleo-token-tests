@@ -41,14 +41,6 @@ export class TokenContract extends BaseContract {
       isImportedAleo: false
     });
   }
-  async reset_account(r0: LeoAddress): Promise < TransactionResponse < TransactionModel & receipt.TokenReset_accountTransition, [] >> {
-    const r0Leo = js2leo.address(r0);
-
-    const params = [r0Leo]
-    const result = await this.ctx.execute('reset_account', params);
-    return result
-  }
-
   async mint_pub(r0: LeoAddress, r1: bigint): Promise < TransactionResponse < TransactionModel & receipt.TokenMint_pubTransition, [] >> {
     const r0Leo = js2leo.address(r0);
     const r1Leo = js2leo.u64(r1);
@@ -107,6 +99,14 @@ export class TokenContract extends BaseContract {
     const params = [r0Leo, r1Leo, r2Leo]
     const result = await this.ctx.execute('transfer_pub_to_priv', params);
     result.set_converter_fn([leo2js.record]);
+    return result
+  }
+
+  async reset_account(r0: LeoAddress): Promise < TransactionResponse < TransactionModel & receipt.TokenReset_accountTransition, [] >> {
+    const r0Leo = js2leo.address(r0);
+
+    const params = [r0Leo]
+    const result = await this.ctx.execute('reset_account', params);
     return result
   }
 
